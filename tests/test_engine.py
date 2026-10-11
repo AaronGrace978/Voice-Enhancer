@@ -167,6 +167,32 @@ def test_audio_roundtrip_and_loudness_shape():
     assert frame_loudness_db(y, 512, 80).shape == (80,)
 
 
+def test_m4a_bytes_decode():
+    import shutil
+    import subprocess
+    import tempfile
+    from pathlib import Path
+
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        import pytest
+
+        pytest.skip("ffmpeg is not installed")
+    sr = 16000
+    y = (0.2 * np.sin(2 * np.pi * 220 * np.arange(sr) / sr)).astype(np.float32)
+    with tempfile.TemporaryDirectory() as folder:
+        wav = Path(folder) / "tone.wav"
+        m4a = Path(folder) / "Recording.m4a"
+        sf.write(wav, y, sr)
+        subprocess.run(
+            [ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(wav), "-c:a", "aac", str(m4a)],
+            check=True,
+        )
+        loaded = load_audio(m4a.read_bytes(), filename="Recording.m4a")
+    assert loaded.size > sr // 2
+    assert float(np.max(np.abs(loaded))) > 0.01
+
+
 def test_booth_demo_and_rejects_silence():
     from vocallift.api import app
 

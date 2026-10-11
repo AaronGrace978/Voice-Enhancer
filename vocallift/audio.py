@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import io
+import os
+import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -31,6 +34,8 @@ def _suffix_for(data: bytes, filename: str | None = None) -> str:
             return ext
     if len(data) > 1 and data[0] == 0xFF and (data[1] & 0xE0) == 0xE0:
         return ".mp3"
+    if len(data) >= 12 and data[4:8] == b"ftyp":
+        return ".m4a"
     return ".wav"
 
 
@@ -53,6 +58,27 @@ def _read_array(y: np.ndarray, file_sr: int, sr: int) -> np.ndarray:
     return np.ascontiguousarray(y, dtype=np.float32)
 
 
+def _from_soundfile(source: str | io.BytesIO, sr: int) -> np.ndarray:
+    y, file_sr = sf.read(source, dtype="float32", always_2d=True)
+    return _read_array(y, file_sr, sr)
+
+
+def _from_ffmpeg(path: str, sr: int) -> np.ndarray:
+    """Decode AAC, M4A, and other formats libsndfile does not open."""
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise RuntimeError("ffmpeg is not installed")
+    proc = subprocess.run(
+        [ffmpeg, "-hide_banner", "-loglevel", "error", "-i", path, "-f", "wav", "-acodec", "pcm_f32le", "pipe:1"],
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0 or not proc.stdout:
+        detail = proc.stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError(detail or "ffmpeg could not decode this file")
+    return _from_soundfile(io.BytesIO(proc.stdout), sr)
+
+
 def _read_with_librosa(path: str, sr: int) -> np.ndarray:
     import librosa
 
@@ -60,25 +86,33 @@ def _read_with_librosa(path: str, sr: int) -> np.ndarray:
     return _read_array(y, file_sr, sr)
 
 
+def _from_path(path: str, sr: int) -> np.ndarray:
+    try:
+        return _from_soundfile(path, sr)
+    except Exception:
+        pass
+    try:
+        return _from_ffmpeg(path, sr)
+    except Exception:
+        return _read_with_librosa(path, sr)
+
+
 def load_audio(source: str | Path | bytes, sr: int = SAMPLE_RATE, filename: str | None = None) -> np.ndarray:
     """Load a file or a byte string as mono float32 at ``sr``."""
     if isinstance(source, (bytes, bytearray)):
         data = bytes(source)
         try:
-            y, file_sr = sf.read(io.BytesIO(data), dtype="float32", always_2d=True)
-            return _read_array(y, file_sr, sr)
+            return _from_soundfile(io.BytesIO(data), sr)
         except Exception:
             suffix = _suffix_for(data, filename)
-            with tempfile.NamedTemporaryFile(suffix=suffix) as tmp:
-                tmp.write(data)
-                tmp.flush()
-                return _read_with_librosa(tmp.name, sr)
-    path = str(source)
-    try:
-        y, file_sr = sf.read(path, dtype="float32", always_2d=True)
-        return _read_array(y, file_sr, sr)
-    except Exception:
-        return _read_with_librosa(path, sr)
+            fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+            try:
+                with os.fdopen(fd, "wb") as handle:
+                    handle.write(data)
+                return _from_path(tmp_path, sr)
+            finally:
+                os.remove(tmp_path)
+    return _from_path(str(source), sr)
 
 
 def save_audio(path: str | Path, y: np.ndarray, sr: int = SAMPLE_RATE) -> None:
