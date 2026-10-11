@@ -167,6 +167,37 @@ def test_audio_roundtrip_and_loudness_shape():
     assert frame_loudness_db(y, 512, 80).shape == (80,)
 
 
+def _encode(y: np.ndarray, sr: int, fmt: str, codec: str) -> bytes:
+    import av
+    import io
+
+    raw = io.BytesIO()
+    container = av.open(raw, mode="w", format=fmt)
+    stream = container.add_stream(codec, rate=sr)
+    stream.layout = "mono"
+    frame = av.AudioFrame.from_ndarray(y.reshape(1, -1), format="flt", layout="mono")
+    frame.sample_rate = sr
+    for packet in stream.encode(frame):
+        container.mux(packet)
+    for packet in stream.encode(None):
+        container.mux(packet)
+    container.close()
+    return raw.getvalue()
+
+
+def test_load_resamples_and_reads_browser_recordings():
+    sr = 48000
+    y = (0.2 * np.sin(2 * np.pi * 220 * np.arange(int(sr * 0.3)) / sr)).astype(np.float32)
+    buf = io.BytesIO()
+    sf.write(buf, y, sr, format="WAV")
+    loaded = load_audio(buf.getvalue(), filename="note.wav")
+    assert abs(len(loaded) - int(0.3 * 44100)) < 400
+    for fmt, codec in (("webm", "libopus"), ("mp3", "mp3"), ("mp4", "aac")):
+        decoded = load_audio(_encode(y, sr, fmt, codec))
+        assert 0.15 * 44100 < len(decoded) < 0.6 * 44100
+        assert float(np.max(np.abs(decoded))) > 0.01
+
+
 def test_booth_demo_and_rejects_silence():
     from vocallift.api import app
 

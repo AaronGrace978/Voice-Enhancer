@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import sys
 import time
 from pathlib import Path
 
@@ -18,7 +19,13 @@ from vocallift.demo import flat_take, guide_take, offkey_take
 from vocallift.music import note_name
 from vocallift.pipeline import EnhanceSettings, default_checkpoint, enhance
 
-WEB = Path(__file__).resolve().parent.parent / "web"
+def _web_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS")) / "web"
+    return Path(__file__).resolve().parent.parent / "web"
+
+
+WEB = _web_dir()
 app = FastAPI(title="VocalLift", version=__version__)
 _DEMO_CACHE: dict[str, dict] = {}
 

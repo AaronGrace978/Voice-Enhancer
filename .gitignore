@@ -6,3 +6,7 @@ __pycache__/
 checkpoints/*.pt
 *.wav
 .DS_Store
+dist/
+build/
+*.spec
+release-notes.md

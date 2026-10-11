@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from vocallift.audio import fit_length
+from vocallift.audio import fit_length, resample
 from vocallift.neural.model import VocalRestorer, pick_device
 
 _CACHE: dict[tuple[str, str], VocalRestorer] = {}
@@ -28,12 +28,7 @@ def load_model(path: str | Path, device: torch.device | None = None) -> VocalRes
 
 
 def _resample(y: np.ndarray, src_sr: int, dst_sr: int) -> np.ndarray:
-    y = np.asarray(y, dtype=np.float32).reshape(-1)
-    if src_sr == dst_sr:
-        return y
-    import librosa
-
-    return librosa.resample(y, orig_sr=src_sr, target_sr=dst_sr).astype(np.float32)
+    return resample(y, src_sr, dst_sr)
 
 
 def resample_f0(f0: np.ndarray, src_sr: int, src_hop: int, n_out: int, dst_sr: int, dst_hop: int) -> np.ndarray:

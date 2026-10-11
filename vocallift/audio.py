@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import io
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -12,26 +11,51 @@ import soundfile as sf
 SAMPLE_RATE = 44100
 HOP_LENGTH = 512
 
-_MAGIC = (
-    (b"RIFF", ".wav"),
-    (b"fLaC", ".flac"),
-    (b"OggS", ".ogg"),
-    (b"ID3", ".mp3"),
-    (b"\x1aE\xdf\xa3", ".webm"),
-)
+
+def resample(y: np.ndarray, orig_sr: int, target_sr: int) -> np.ndarray:
+    """Resample mono audio. soxr when it is installed, librosa otherwise."""
+    y = np.asarray(y, dtype=np.float32).reshape(-1)
+    if orig_sr == target_sr or y.size == 0:
+        return np.ascontiguousarray(y, dtype=np.float32)
+    try:
+        import soxr
+
+        out = soxr.resample(y, orig_sr, target_sr, quality="HQ")
+    except ImportError:
+        import librosa
+
+        out = librosa.resample(y, orig_sr=orig_sr, target_sr=target_sr)
+    return np.ascontiguousarray(out, dtype=np.float32)
 
 
-def _suffix_for(data: bytes, filename: str | None = None) -> str:
-    if filename:
-        ext = Path(filename).suffix.lower()
-        if ext:
-            return ".wav" if ext == ".wave" else ext
-    for magic, ext in _MAGIC:
-        if data.startswith(magic):
-            return ext
-    if len(data) > 1 and data[0] == 0xFF and (data[1] & 0xE0) == 0xE0:
-        return ".mp3"
-    return ".wav"
+def _decode_av(source, sr: int) -> np.ndarray:
+    """Decode mp3, m4a, webm, and anything else soundfile declines."""
+    import av
+
+    container = av.open(source)
+    try:
+        stream = next((item for item in container.streams if item.type == "audio"), None)
+        if stream is None:
+            raise ValueError("That file has no audio stream.")
+        resampler = av.audio.resampler.AudioResampler(format="flt", layout="mono", rate=sr)
+        chunks: list[np.ndarray] = []
+
+        def take(frames) -> None:
+            if frames is None:
+                return
+            if not isinstance(frames, list):
+                frames = [frames]
+            for frame in frames:
+                chunks.append(np.asarray(frame.to_ndarray(), dtype=np.float32).reshape(-1))
+
+        for frame in container.decode(stream):
+            take(resampler.resample(frame))
+        take(resampler.resample(None))
+    finally:
+        container.close()
+    if not chunks:
+        raise ValueError("That recording is empty.")
+    return np.concatenate(chunks)
 
 
 def _channels_last(y: np.ndarray) -> np.ndarray:
@@ -46,39 +70,32 @@ def _channels_last(y: np.ndarray) -> np.ndarray:
 
 def _read_array(y: np.ndarray, file_sr: int, sr: int) -> np.ndarray:
     y = _channels_last(y).mean(axis=1)
-    if file_sr != sr:
-        import librosa
-
-        y = librosa.resample(y, orig_sr=file_sr, target_sr=sr)
-    return np.ascontiguousarray(y, dtype=np.float32)
+    return resample(y, file_sr, sr)
 
 
-def _read_with_librosa(path: str, sr: int) -> np.ndarray:
-    import librosa
-
-    y, file_sr = librosa.load(path, sr=None, mono=False)
-    return _read_array(y, file_sr, sr)
+def _load_decoded(source, sr: int) -> np.ndarray:
+    try:
+        if isinstance(source, (bytes, bytearray)):
+            y, file_sr = sf.read(io.BytesIO(bytes(source)), dtype="float32", always_2d=True)
+        else:
+            y, file_sr = sf.read(str(source), dtype="float32", always_2d=True)
+        return _read_array(y, int(file_sr), sr)
+    except Exception as soundfile_error:
+        try:
+            decoded = source if not isinstance(source, (bytes, bytearray)) else io.BytesIO(bytes(source))
+            return _decode_av(decoded, sr)
+        except Exception as decode_error:
+            raise ValueError(f"Could not read that audio ({decode_error}).") from soundfile_error
 
 
 def load_audio(source: str | Path | bytes, sr: int = SAMPLE_RATE, filename: str | None = None) -> np.ndarray:
-    """Load a file or a byte string as mono float32 at ``sr``."""
-    if isinstance(source, (bytes, bytearray)):
-        data = bytes(source)
-        try:
-            y, file_sr = sf.read(io.BytesIO(data), dtype="float32", always_2d=True)
-            return _read_array(y, file_sr, sr)
-        except Exception:
-            suffix = _suffix_for(data, filename)
-            with tempfile.NamedTemporaryFile(suffix=suffix) as tmp:
-                tmp.write(data)
-                tmp.flush()
-                return _read_with_librosa(tmp.name, sr)
-    path = str(source)
-    try:
-        y, file_sr = sf.read(path, dtype="float32", always_2d=True)
-        return _read_array(y, file_sr, sr)
-    except Exception:
-        return _read_with_librosa(path, sr)
+    """Load a file or a byte string as mono float32 at ``sr``.
+
+    ``filename`` is accepted so callers can pass an upload name. The bytes
+    themselves decide the format.
+    """
+    del filename
+    return _load_decoded(source, sr)
 
 
 def save_audio(path: str | Path, y: np.ndarray, sr: int = SAMPLE_RATE) -> None:
