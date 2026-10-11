@@ -204,6 +204,7 @@ def test_booth_demo_and_rejects_silence():
     page = client.get("/")
     assert page.status_code == 200
     assert "Land the note" in page.text
+    assert "Open in Colab" in page.text
     assert client.get("/static/app.js").status_code == 200
     health = client.get("/api/health").json()
     assert health["ok"] is True
