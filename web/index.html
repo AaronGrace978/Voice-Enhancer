@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VocalLift — land the note, keep the voice</title>
+  <meta name="description" content="VocalLift repairs cracks and pulls a vocal into key without sanding off the vibrato. Fine-tune the resynthesizer in Colab." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Outfit:wght@380;520;640&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#booth">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="15" />
+        <path d="M6 18c2-6 4-6 6 0s4 6 6 0 4-6 6 0" />
+      </svg>
+      <span>VocalLift</span>
+    </a>
+    <p>A singing engine you train yourself</p>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="intro">
+        <p class="kicker">For voices that know the tune</p>
+        <h1>Land the note.<br />Keep the voice.</h1>
+        <p class="lede">
+          VocalLift is the part of singing that Auto-Tune flattens and a song generator invents.
+          It hears the note you were reaching for, rebuilds the crack, and leaves the vibrato that makes it yours.
+        </p>
+        <ol class="score">
+          <li>
+            <span>01</span>
+            <div>
+              <strong>Split the performance</strong>
+              <p>Pitch, tone, and breath come apart. A crack is a short break in the pitch, not a new note.</p>
+            </div>
+          </li>
+          <li>
+            <span>02</span>
+            <div>
+              <strong>Move only the intent</strong>
+              <p>The slow melody slides into the key, or onto a guide track of the song. Vibrato stays put.</p>
+            </div>
+          </li>
+          <li>
+            <span>03</span>
+            <div>
+              <strong>Stitch the voice back</strong>
+              <p>Vowels are resung. Consonants stay yours. A Colab notebook can fine-tune a resynthesizer on your tone.</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+
+      <section class="booth" id="booth" aria-label="Vocal booth">
+        <header class="booth-head">
+          <h2>The booth</h2>
+          <p>A take, a key, and — if you have it — the melody you meant.</p>
+        </header>
+
+        <div class="sources">
+          <label class="drop" id="drop">
+            <input id="file" type="file" accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a,.webm" />
+            <strong id="fileLabel">Drop a vocal</strong>
+            <span>wav, mp3, m4a, or a recording</span>
+          </label>
+          <button type="button" class="record" id="record" aria-pressed="false">
+            <span class="dot"></span>
+            <span id="recordLabel">Record</span>
+          </button>
+        </div>
+
+        <label class="guide">
+          <span>Melody guide <em>optional</em></span>
+          <input id="guide" type="file" accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a,.webm" />
+          <strong id="guideLabel">Follow this tune instead of the nearest note</strong>
+        </label>
+
+        <div class="row">
+          <label>
+            Key
+            <select id="key">
+              <option value="auto">Hear it</option>
+              <option>C</option><option>C#</option><option>D</option><option>D#</option>
+              <option>E</option><option>F</option><option>F#</option><option>G</option>
+              <option>G#</option><option>A</option><option>A#</option><option>B</option>
+            </select>
+          </label>
+          <label>
+            Scale
+            <select id="scale">
+              <option value="auto">Match the take</option>
+              <option value="major">Major</option>
+              <option value="minor">Minor</option>
+              <option value="major_pentatonic">Major pentatonic</option>
+              <option value="minor_pentatonic">Minor pentatonic</option>
+              <option value="blues">Blues</option>
+              <option value="dorian">Dorian</option>
+              <option value="mixolydian">Mixolydian</option>
+              <option value="harmonic_minor">Harmonic minor</option>
+              <option value="chromatic">Chromatic</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="slider">
+          <span>Correction <output id="strengthOut">85%</output></span>
+          <input id="strength" type="range" min="0" max="100" value="85" />
+        </label>
+
+        <div class="checks">
+          <label><input id="repair" type="checkbox" checked /> Repair cracks</label>
+          <label><input id="harmony" type="checkbox" /> Add a third</label>
+          <label><input id="backing" type="checkbox" /> Preview over chords</label>
+        </div>
+
+        <details class="more">
+          <summary>Shape the performance</summary>
+          <label class="slider"><span>Hold the center <output id="tightOut">40%</output></span>
+            <input id="tightness" type="range" min="0" max="100" value="40" /></label>
+          <label class="slider"><span>Glide <output id="retuneOut">50 ms</output></span>
+            <input id="retune" type="range" min="0" max="180" value="50" /></label>
+          <label class="slider"><span>Keep vibrato <output id="vibratoOut">100%</output></span>
+            <input id="vibrato" type="range" min="0" max="150" value="100" /></label>
+          <label class="slider"><span>Vibrato assist <output id="addOut">0%</output></span>
+            <input id="addVibrato" type="range" min="0" max="100" value="0" /></label>
+          <label class="slider"><span>Presence <output id="presenceOut">65%</output></span>
+            <input id="presence" type="range" min="0" max="100" value="65" /></label>
+          <label class="slider"><span>Room <output id="reverbOut">14%</output></span>
+            <input id="reverb" type="range" min="0" max="45" value="14" /></label>
+          <div class="checks">
+            <label title="DIO instead of Harvest. Quicker, and more likely to slip an octave."><input id="fast" type="checkbox" /> Faster pitch track</label>
+            <label><input id="neural" type="checkbox" /> Neural resynth</label>
+          </div>
+          <p class="hint" id="neuralHint">Train a checkpoint in the Colab notebook, then drop it in <code>checkpoints/vocallift.pt</code>.</p>
+        </details>
+
+        <div class="actions">
+          <button type="button" class="go" id="go">Enhance</button>
+          <button type="button" class="ghost" id="demoOff">Off-key demo</button>
+          <button type="button" class="ghost" id="demoGuide">Follow the melody</button>
+        </div>
+        <p class="status" id="status" role="status">Demos are sung by a synthesizer, so you can hear the engine before you record.</p>
+      </section>
+    </section>
+
+    <section class="stage" id="stage" hidden>
+      <div class="stats">
+        <p><span id="statBefore">—</span><small>sung, cents off</small></p>
+        <p class="arrow" aria-hidden="true">→</p>
+        <p><span id="statAfter">—</span><small>after, cents off</small></p>
+        <p class="keyline"><span id="statKey">—</span><small id="statMeta">—</small></p>
+      </div>
+      <div class="players">
+        <figure>
+          <figcaption>Before</figcaption>
+          <audio id="playerBefore" controls></audio>
+        </figure>
+        <figure>
+          <figcaption>Enhanced vocal</figcaption>
+          <audio id="playerAfter" controls></audio>
+        </figure>
+        <figure id="mixWrap" hidden>
+          <figcaption>With chords</figcaption>
+          <audio id="playerMix" controls></audio>
+        </figure>
+      </div>
+      <div class="downloads">
+        <a id="download" download="vocallift.wav">Download vocal</a>
+        <a id="downloadMix" download="vocallift-mix.wav" hidden>Download mix</a>
+      </div>
+      <div class="lane">
+        <div class="lane-head">
+          <h3>Pitch</h3>
+          <p><i class="swatch sung"></i> Sung <i class="swatch fixed"></i> After</p>
+        </div>
+        <canvas id="pitch" width="960" height="280"></canvas>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Time</th><th>Sung</th><th>Target</th><th>Before</th><th>After</th></tr>
+          </thead>
+          <tbody id="notes"></tbody>
+        </table>
+      </div>
+      <p class="warning" id="warning" hidden></p>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      The booth runs on this machine. The
+      <a href="https://colab.research.google.com/github/AaronGrace978/Voice-Enhancer/blob/cursor/vocallift-platform-865a/notebooks/VocalLift_Colab.ipynb">Colab notebook</a>
+      trains the resynthesizer — first on damaged synthetic singing, then on your own takes.
+    </p>
+  </footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>
