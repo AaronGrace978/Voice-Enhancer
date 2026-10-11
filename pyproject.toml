@@ -1,0 +1,9 @@
+[project]
+name = "vocallift"
+version = "0.1.0"
+description = "A singing engine that repairs cracks and lands the note without erasing the voice."
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
