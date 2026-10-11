@@ -1,5 +1,7 @@
 # VocalLift
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/AaronGrace978/Voice-Enhancer/blob/cursor/vocallift-platform-865a/notebooks/VocalLift_Colab.ipynb)
+
 VocalLift is a singing engine for a voice that can hear the melody and cannot quite hold it. It rebuilds the cracks, pulls each note into the key — or onto a guide track of the tune — and leaves the vibrato alone.
 
 It is not a text-to-song generator. A model like Suno writes a performance that never happened. VocalLift starts from the take you sang and makes *that* performance land.
@@ -65,9 +67,7 @@ It is a small differentiable harmonic-plus-noise synthesizer. Training does not 
 
 It has to read the vowel from the damaged recording and follow the pitch it was handed. In the booth, that pitch is the melody the signal engine already corrected.
 
-[`notebooks/VocalLift_Colab.ipynb`](notebooks/VocalLift_Colab.ipynb) does this, then optionally fine-tunes on dry recordings of one voice: reconstruct them from their own pitch, and again from a noisy copy.
-
-[Open it in Colab](https://colab.research.google.com/github/AaronGrace978/Voice-Enhancer/blob/cursor/vocallift-platform-865a/notebooks/VocalLift_Colab.ipynb).
+[`notebooks/VocalLift_Colab.ipynb`](notebooks/VocalLift_Colab.ipynb) does this, then optionally fine-tunes on dry recordings of one voice: reconstruct them from their own pitch, and again from a noisy copy. The badge at the top opens that notebook in a Colab session. The first cell clones this branch so the `vocallift` package is in the runtime.
 
 Or locally:
 

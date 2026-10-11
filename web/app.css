@@ -29,14 +29,24 @@ body {
 .top {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 1rem;
   max-width: 1120px;
   margin: 0 auto;
   padding: 1.4rem 1.4rem 0;
 }
 
+.top-links {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .top p { margin: 0; color: var(--muted); }
+
+.colab { display: inline-flex; line-height: 0; }
+.colab img { height: 1.4rem; width: auto; }
+.text-link { color: var(--copper); }
 
 .brand {
   display: flex;
@@ -282,11 +292,19 @@ td.on { color: var(--fixed); }
 
 .warning { color: var(--sung); }
 
-footer { max-width: 1120px; margin: 0 auto; padding: 0 1.4rem 2.5rem; color: var(--muted); }
-footer a { color: var(--copper); }
+footer {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 1.4rem 2.5rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+footer p { margin: 0; }
 
 @media (max-width: 860px) {
   .hero, .players { grid-template-columns: 1fr; }
-  .top { flex-direction: column; }
+  .top, .top-links, footer { flex-direction: column; align-items: flex-start; }
   h1 { font-size: 3.2rem; }
 }
