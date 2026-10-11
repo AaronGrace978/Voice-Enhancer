@@ -8,7 +8,24 @@ It is not a text-to-song generator. A model like Suno writes a performance that 
 
 On the included synthesized phrase, sour by about **37 cents** with one octave crack and one dropout, the engine finishes **4 cents** off the notes it was reaching for. A take sung a minor third flat, which snap-to-scale would drag onto the wrong degrees, follows a guide melody from **132 cents** off to **7**.
 
-## Run the booth
+## Download
+
+[v0.1.1](https://github.com/AaronGrace978/Voice-Enhancer/releases/tag/v0.1.1) is built for Windows, macOS, and Linux. Unzip the archive and keep the folder together. Nothing else to install.
+
+| Platform | File |
+| --- | --- |
+| Windows | `VocalLift-0.1.1-windows-x64.zip` |
+| macOS Apple Silicon | `VocalLift-0.1.1-macos-arm64.tar.gz` |
+| macOS Intel | `VocalLift-0.1.1-macos-x64.tar.gz` |
+| Linux | `VocalLift-0.1.1-linux-x64.tar.gz` |
+
+On Windows, double-click `VocalLift.exe`. On macOS or Linux, open a terminal in that folder and run `./VocalLift`. The booth opens at [http://127.0.0.1:8000](http://127.0.0.1:8000).
+
+These builds are unsigned. Windows SmartScreen and macOS Gatekeeper ask you to confirm the first launch. On a Mac, right-click `VocalLift` and choose Open.
+
+The download is the booth and the signal engine. Training the resynthesizer stays in the Colab notebook. Put a finished checkpoint next to the program at `checkpoints/vocallift.pt` and turn on Neural resynth.
+
+## Run from source
 
 ```bash
 python -m venv .venv && source .venv/bin/activate

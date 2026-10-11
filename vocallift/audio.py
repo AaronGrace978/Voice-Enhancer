@@ -3,10 +3,6 @@
 from __future__ import annotations
 
 import io
-import os
-import shutil
-import subprocess
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -15,28 +11,51 @@ import soundfile as sf
 SAMPLE_RATE = 44100
 HOP_LENGTH = 512
 
-_MAGIC = (
-    (b"RIFF", ".wav"),
-    (b"fLaC", ".flac"),
-    (b"OggS", ".ogg"),
-    (b"ID3", ".mp3"),
-    (b"\x1aE\xdf\xa3", ".webm"),
-)
+
+def resample(y: np.ndarray, orig_sr: int, target_sr: int) -> np.ndarray:
+    """Resample mono audio. soxr when it is installed, librosa otherwise."""
+    y = np.asarray(y, dtype=np.float32).reshape(-1)
+    if orig_sr == target_sr or y.size == 0:
+        return np.ascontiguousarray(y, dtype=np.float32)
+    try:
+        import soxr
+
+        out = soxr.resample(y, orig_sr, target_sr, quality="HQ")
+    except ImportError:
+        import librosa
+
+        out = librosa.resample(y, orig_sr=orig_sr, target_sr=target_sr)
+    return np.ascontiguousarray(out, dtype=np.float32)
 
 
-def _suffix_for(data: bytes, filename: str | None = None) -> str:
-    if filename:
-        ext = Path(filename).suffix.lower()
-        if ext:
-            return ".wav" if ext == ".wave" else ext
-    for magic, ext in _MAGIC:
-        if data.startswith(magic):
-            return ext
-    if len(data) > 1 and data[0] == 0xFF and (data[1] & 0xE0) == 0xE0:
-        return ".mp3"
-    if len(data) >= 12 and data[4:8] == b"ftyp":
-        return ".m4a"
-    return ".wav"
+def _decode_av(source, sr: int) -> np.ndarray:
+    """Decode mp3, m4a, webm, and anything else soundfile declines."""
+    import av
+
+    container = av.open(source)
+    try:
+        stream = next((item for item in container.streams if item.type == "audio"), None)
+        if stream is None:
+            raise ValueError("That file has no audio stream.")
+        resampler = av.audio.resampler.AudioResampler(format="flt", layout="mono", rate=sr)
+        chunks: list[np.ndarray] = []
+
+        def take(frames) -> None:
+            if frames is None:
+                return
+            if not isinstance(frames, list):
+                frames = [frames]
+            for frame in frames:
+                chunks.append(np.asarray(frame.to_ndarray(), dtype=np.float32).reshape(-1))
+
+        for frame in container.decode(stream):
+            take(resampler.resample(frame))
+        take(resampler.resample(None))
+    finally:
+        container.close()
+    if not chunks:
+        raise ValueError("That recording is empty.")
+    return np.concatenate(chunks)
 
 
 def _channels_last(y: np.ndarray) -> np.ndarray:
@@ -51,68 +70,32 @@ def _channels_last(y: np.ndarray) -> np.ndarray:
 
 def _read_array(y: np.ndarray, file_sr: int, sr: int) -> np.ndarray:
     y = _channels_last(y).mean(axis=1)
-    if file_sr != sr:
-        import librosa
-
-        y = librosa.resample(y, orig_sr=file_sr, target_sr=sr)
-    return np.ascontiguousarray(y, dtype=np.float32)
+    return resample(y, file_sr, sr)
 
 
-def _from_soundfile(source: str | io.BytesIO, sr: int) -> np.ndarray:
-    y, file_sr = sf.read(source, dtype="float32", always_2d=True)
-    return _read_array(y, file_sr, sr)
-
-
-def _from_ffmpeg(path: str, sr: int) -> np.ndarray:
-    """Decode AAC, M4A, and other formats libsndfile does not open."""
-    ffmpeg = shutil.which("ffmpeg")
-    if not ffmpeg:
-        raise RuntimeError("ffmpeg is not installed")
-    proc = subprocess.run(
-        [ffmpeg, "-hide_banner", "-loglevel", "error", "-i", path, "-f", "wav", "-acodec", "pcm_f32le", "pipe:1"],
-        capture_output=True,
-        check=False,
-    )
-    if proc.returncode != 0 or not proc.stdout:
-        detail = proc.stderr.decode("utf-8", errors="replace").strip()
-        raise RuntimeError(detail or "ffmpeg could not decode this file")
-    return _from_soundfile(io.BytesIO(proc.stdout), sr)
-
-
-def _read_with_librosa(path: str, sr: int) -> np.ndarray:
-    import librosa
-
-    y, file_sr = librosa.load(path, sr=None, mono=False)
-    return _read_array(y, file_sr, sr)
-
-
-def _from_path(path: str, sr: int) -> np.ndarray:
+def _load_decoded(source, sr: int) -> np.ndarray:
     try:
-        return _from_soundfile(path, sr)
-    except Exception:
-        pass
-    try:
-        return _from_ffmpeg(path, sr)
-    except Exception:
-        return _read_with_librosa(path, sr)
+        if isinstance(source, (bytes, bytearray)):
+            y, file_sr = sf.read(io.BytesIO(bytes(source)), dtype="float32", always_2d=True)
+        else:
+            y, file_sr = sf.read(str(source), dtype="float32", always_2d=True)
+        return _read_array(y, int(file_sr), sr)
+    except Exception as soundfile_error:
+        try:
+            decoded = source if not isinstance(source, (bytes, bytearray)) else io.BytesIO(bytes(source))
+            return _decode_av(decoded, sr)
+        except Exception as decode_error:
+            raise ValueError(f"Could not read that audio ({decode_error}).") from soundfile_error
 
 
 def load_audio(source: str | Path | bytes, sr: int = SAMPLE_RATE, filename: str | None = None) -> np.ndarray:
-    """Load a file or a byte string as mono float32 at ``sr``."""
-    if isinstance(source, (bytes, bytearray)):
-        data = bytes(source)
-        try:
-            return _from_soundfile(io.BytesIO(data), sr)
-        except Exception:
-            suffix = _suffix_for(data, filename)
-            fd, tmp_path = tempfile.mkstemp(suffix=suffix)
-            try:
-                with os.fdopen(fd, "wb") as handle:
-                    handle.write(data)
-                return _from_path(tmp_path, sr)
-            finally:
-                os.remove(tmp_path)
-    return _from_path(str(source), sr)
+    """Load a file or a byte string as mono float32 at ``sr``.
+
+    ``filename`` is accepted so callers can pass an upload name. The bytes
+    themselves decide the format.
+    """
+    del filename
+    return _load_decoded(source, sr)
 
 
 def save_audio(path: str | Path, y: np.ndarray, sr: int = SAMPLE_RATE) -> None:
