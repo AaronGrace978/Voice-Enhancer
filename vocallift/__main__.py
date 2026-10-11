@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import os
+import sys
 
 from vocallift.audio import load_audio, save_audio
 from vocallift.chords import mix_with_backing
@@ -45,18 +47,47 @@ def _build() -> argparse.ArgumentParser:
     return parser
 
 
+def _open_booth(url: str, host: str) -> None:
+    if os.environ.get("CI") or os.environ.get("VOCALLIFT_NO_BROWSER"):
+        return
+    if not getattr(sys, "frozen", False):
+        return
+    if host not in {"127.0.0.1", "localhost", "::1"}:
+        return
+    import threading
+    import webbrowser
+
+    def _open() -> None:
+        try:
+            webbrowser.open(url)
+        except Exception:
+            return
+
+    threading.Timer(0.6, _open).start()
+
+
 def main(argv: list[str] | None = None) -> None:
+    if argv is None:
+        argv = sys.argv[1:]
+    if not argv and getattr(sys, "frozen", False):
+        argv = ["serve"]
     args = _build().parse_args(argv)
     if args.cmd == "serve":
         import uvicorn
 
         from vocallift.api import app
 
+        url = f"http://{args.host}:{args.port}"
+        print(f"VocalLift booth at {url}")
+        _open_booth(url, args.host)
         uvicorn.run(app, host=args.host, port=args.port)
         return
     if args.cmd == "train":
-        from vocallift.neural.infer import load_model
-        from vocallift.neural.train import finetune_files, save_checkpoint, train_steps
+        try:
+            from vocallift.neural.infer import load_model
+            from vocallift.neural.train import finetune_files, save_checkpoint, train_steps
+        except ImportError as exc:
+            raise SystemExit("Training needs PyTorch. Open the Colab notebook, or pip install torch torchaudio.") from exc
 
         if args.init:
             model = load_model(args.init)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -11,7 +12,7 @@ from scipy.ndimage import uniform_filter1d
 
 from vocallift.align import map_guide
 from vocallift.analysis import analyze, synthesize
-from vocallift.audio import SAMPLE_RATE, fit_length
+from vocallift.audio import SAMPLE_RATE, fit_length, resample
 from vocallift.correction import correct_pitch, repair_cracks, residual_cents
 from vocallift.harmony import layer_harmony, shifted_f0
 from vocallift.mastering import master_vocal
@@ -87,9 +88,13 @@ def default_checkpoint() -> str | None:
     env = os.environ.get("VOCALLIFT_CHECKPOINT")
     if env and os.path.isfile(env):
         return env
-    bundled = Path(__file__).resolve().parent.parent / "checkpoints" / "vocallift.pt"
-    if bundled.is_file():
-        return str(bundled)
+    candidates = [Path.cwd() / "checkpoints" / "vocallift.pt"]
+    if getattr(sys, "frozen", False):
+        candidates.insert(0, Path(sys.executable).resolve().parent / "checkpoints" / "vocallift.pt")
+    candidates.append(Path(__file__).resolve().parent.parent / "checkpoints" / "vocallift.pt")
+    for path in candidates:
+        if path.is_file():
+            return str(path)
     return None
 
 
@@ -132,9 +137,7 @@ def _prepare(y: np.ndarray, sr: int) -> tuple[np.ndarray, int]:
     if y.size == 0:
         raise ValueError("That recording is empty.")
     if sr != SAMPLE_RATE:
-        import librosa
-
-        y = librosa.resample(y, orig_sr=sr, target_sr=SAMPLE_RATE).astype(np.float32)
+        y = resample(y, sr, SAMPLE_RATE)
         sr = SAMPLE_RATE
     peak = float(np.max(np.abs(y)))
     if peak < 1e-4:
