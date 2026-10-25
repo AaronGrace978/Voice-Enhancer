@@ -8,7 +8,7 @@ It is not a text-to-song generator. A model like Suno writes a performance that 
 
 On the included synthesized phrase, sour by about **37 cents** with one octave crack and one dropout, the engine finishes **4 cents** off the notes it was reaching for. A take sung a minor third flat, which snap-to-scale would drag onto the wrong degrees, follows a guide melody from **132 cents** off to **7**.
 
-It also has **voice skins**, the idea behind Holly Herndon's [Holly+](https://holly.plus): a voice owner shares their voice, and anyone can speak (or sing) into it and come out sounding like them. No singing is needed to make one or to use one. See [Voice skins](#voice-skins).
+It also has **voice skins**: record a few minutes of a voice, and anyone can speak (or sing) into that skin and come out sounding like them. No singing is needed to make one or to use one. See [Voice skins](#voice-skins).
 
 ## Download
 
@@ -50,9 +50,7 @@ python -m vocallift enhance take.wav out.wav --guide melody.wav --backing
 
 ## Voice skins
 
-Holly+ works like this: Holly Herndon's voice was modeled, and anyone can send audio through it and hear it come back in her voice. The words, the timing, and the melody belong to whoever is performing. The timbre is hers. She made it, she set the terms, and she approves how it is used.
-
-A voice skin is that, for any voice whose owner agrees to share it:
+A voice skin is a voice someone recorded and chose to share. Anyone can send audio through it and hear it come back in that voice. The words, the timing, and the melody stay with whoever is performing. The tone is the owner's.
 
 1. **Make a skin.** The owner reads anything aloud for two to five minutes. Several files are fine, and so is a phone recording in a quiet room.
 2. **Speak through it.** Anyone records themselves talking. The output says what they said, in the owner's voice.
@@ -112,7 +110,7 @@ python scripts/eval_skin.py --asr --engine neural
 
 ### Consent and provenance
 
-Holly+ works because Holly Herndon said yes. Skins are built the same way:
+A skin only exists because its owner said yes:
 
 - A skin will not build without an owner's name and `--consent` (the booth has a checkbox). That is the person confirming the recordings are their own voice, or that the speaker agreed to share it. The statement and date are stored in `skin.json`, along with any terms the owner set. The booth shows those terms next to the voice.
 - Every file a skin produces carries a WAV comment: *"Synthetic voice: <owner> voice skin, made with VocalLift. Not a recording of <owner>."*
