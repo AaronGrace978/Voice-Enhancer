@@ -303,6 +303,213 @@ function noteName(midi) {
 
 window.addEventListener("resize", drawPitch);
 
+function recorderFor(button, label, maxSeconds, onDone) {
+  let active = null;
+  let parts = [];
+  let timer = null;
+  button.addEventListener("click", async () => {
+    if (active) {
+      active.stop();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      parts = [];
+      active = new MediaRecorder(stream);
+      active.ondataavailable = (event) => { if (event.data.size) parts.push(event.data); };
+      active.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        const blob = new Blob(parts, { type: active.mimeType || "audio/webm" });
+        button.setAttribute("aria-pressed", "false");
+        label.textContent = "Record";
+        active = null;
+        clearInterval(timer);
+        onDone(blob);
+      };
+      active.start();
+      const started = Date.now();
+      button.setAttribute("aria-pressed", "true");
+      timer = setInterval(() => {
+        const seconds = Math.round((Date.now() - started) / 1000);
+        label.textContent = `${seconds}s`;
+        if (seconds >= maxSeconds && active) active.stop();
+      }, 250);
+    } catch (error) {
+      label.textContent = "Record";
+    }
+  });
+}
+
+const skinState = { recordings: [], spoken: null, skins: [] };
+
+function skinStatus(id, text, bad = false) {
+  $(id).textContent = text;
+  $(id).classList.toggle("bad", bad);
+}
+
+function describeRecordings() {
+  const files = [...$("skinFiles").files].map((file) => file.name);
+  const takes = skinState.recordings.length;
+  const parts = [];
+  if (files.length) parts.push(files.length === 1 ? files[0] : `${files.length} files`);
+  if (takes) parts.push(takes === 1 ? "1 recording" : `${takes} recordings`);
+  $("skinFilesLabel").textContent = parts.length ? parts.join(" + ") : "Drop recordings of the owner";
+}
+
+$("skinFiles").addEventListener("change", describeRecordings);
+$("skinDrop").addEventListener("dragover", (event) => event.preventDefault());
+$("skinDrop").addEventListener("drop", (event) => {
+  event.preventDefault();
+  if (!event.dataTransfer.files.length) return;
+  const transfer = new DataTransfer();
+  [...$("skinFiles").files, ...event.dataTransfer.files].forEach((file) => transfer.items.add(file));
+  $("skinFiles").files = transfer.files;
+  describeRecordings();
+});
+
+recorderFor($("skinRecord"), $("skinRecordLabel"), 300, (blob) => {
+  skinState.recordings.push(blob);
+  describeRecordings();
+  skinStatus("skinBuildStatus", "Recorded. Add more, or make the skin.");
+});
+
+$("speakFile").addEventListener("change", () => {
+  skinState.spoken = null;
+  $("speakFileLabel").textContent = $("speakFile").files[0] ? $("speakFile").files[0].name : "Drop what to say";
+});
+$("speakDrop").addEventListener("dragover", (event) => event.preventDefault());
+$("speakDrop").addEventListener("drop", (event) => {
+  event.preventDefault();
+  const file = event.dataTransfer.files && event.dataTransfer.files[0];
+  if (!file) return;
+  const transfer = new DataTransfer();
+  transfer.items.add(file);
+  $("speakFile").files = transfer.files;
+  skinState.spoken = null;
+  $("speakFileLabel").textContent = file.name;
+});
+
+recorderFor($("speakRecord"), $("speakRecordLabel"), 300, (blob) => {
+  skinState.spoken = blob;
+  $("speakFile").value = "";
+  $("speakFileLabel").textContent = "Recorded";
+  skinStatus("skinSpeakStatus", "Recorded. Speak as them when you're ready.");
+});
+
+bindSlider($("skinAmount"), $("skinAmountOut"), (v) => `${v}%`);
+bindSlider($("skinShift"), $("skinShiftOut"), (v) => `${v > 0 ? "+" : ""}${v} st`);
+
+function showTerms() {
+  const skin = skinState.skins.find((item) => item.name === $("skinVoice").value);
+  $("skinTermsHint").textContent = skin
+    ? `${skin.owner} · ${Math.round(skin.seconds)}s learned · around ${skin.hz} Hz${skin.terms ? ` · Terms: ${skin.terms}` : ""}`
+    : "Make a skin first.";
+}
+$("skinVoice").addEventListener("change", showTerms);
+
+async function loadSkins(select) {
+  try {
+    const data = await (await fetch("/api/skins")).json();
+    skinState.skins = data.skins || [];
+  } catch (error) {
+    skinState.skins = [];
+  }
+  const voice = $("skinVoice");
+  voice.replaceChildren();
+  if (!skinState.skins.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No skins yet";
+    voice.appendChild(option);
+  }
+  skinState.skins.forEach((skin) => {
+    const option = document.createElement("option");
+    option.value = skin.name;
+    option.textContent = skin.owner;
+    voice.appendChild(option);
+  });
+  if (select) voice.value = select;
+  showTerms();
+}
+
+$("skinBuild").addEventListener("click", async () => {
+  const body = new FormData();
+  [...$("skinFiles").files].forEach((file) => body.append("recordings", file));
+  skinState.recordings.forEach((blob, index) => body.append("recordings", blob, `recording-${index + 1}.webm`));
+  if (!body.has("recordings")) {
+    skinStatus("skinBuildStatus", "Add recordings of the owner first.", true);
+    return;
+  }
+  body.append("owner", $("skinOwner").value);
+  body.append("terms", $("skinTerms").value);
+  body.append("consent", $("skinConsent").checked ? "true" : "false");
+  $("skinBuild").disabled = true;
+  skinStatus("skinBuildStatus", "Learning the voice…");
+  try {
+    const response = await fetch("/api/skins", { method: "POST", body });
+    const data = await response.json();
+    if (!response.ok) throw new Error(errorText(data));
+    skinStatus("skinBuildStatus", `${data.owner}'s skin is ready: ${Math.round(data.seconds)}s of voice, around ${data.hz} Hz.`);
+    skinState.recordings = [];
+    $("skinFiles").value = "";
+    describeRecordings();
+    await loadSkins(data.name);
+  } catch (error) {
+    skinStatus("skinBuildStatus", error.message, true);
+  } finally {
+    $("skinBuild").disabled = false;
+  }
+});
+
+$("skinSpeak").addEventListener("click", async () => {
+  const voice = $("skinVoice").value;
+  if (!voice) {
+    skinStatus("skinSpeakStatus", "Make a skin first.", true);
+    return;
+  }
+  const body = new FormData();
+  let source = null;
+  if (skinState.spoken) {
+    source = skinState.spoken;
+    body.append("file", source, "spoken.webm");
+  } else if ($("speakFile").files[0]) {
+    source = $("speakFile").files[0];
+    body.append("file", source);
+  } else {
+    skinStatus("skinSpeakStatus", "Record or drop something to say.", true);
+    return;
+  }
+  body.append("voice", voice);
+  body.append("engine", $("skinEngine").value);
+  body.append("pitch", $("skinPitch").value);
+  body.append("amount", (Number($("skinAmount").value) / 100).toFixed(3));
+  body.append("shift", $("skinShift").value);
+  $("skinSpeak").disabled = true;
+  skinStatus("skinSpeakStatus", $("skinEngine").value === "neural"
+    ? "Speaking through the neural engine… the first run downloads its weights."
+    : "Speaking through the skin…");
+  try {
+    const response = await fetch("/api/skins/speak", { method: "POST", body });
+    const data = await response.json();
+    if (!response.ok) throw new Error(errorText(data));
+    $("skinOut").hidden = false;
+    $("skinDownloads").hidden = false;
+    if ($("skinBefore").src) URL.revokeObjectURL($("skinBefore").src);
+    $("skinBefore").src = URL.createObjectURL(source);
+    setAudio($("skinAfter"), $("skinDownload"), data.audio_base64);
+    $("skinAfterLabel").textContent = `As ${data.owner}`;
+    $("skinProvenance").textContent = `The file is tagged: “${data.provenance}”`;
+    const pitch = data.source_hz && data.output_hz ? ` · ${Math.round(data.source_hz)} → ${Math.round(data.output_hz)} Hz` : "";
+    skinStatus("skinSpeakStatus", `${data.engine} engine${pitch} · ${data.elapsed_ms} ms${data.warning ? ` · ${data.warning}` : ""}`, Boolean(data.warning));
+  } catch (error) {
+    skinStatus("skinSpeakStatus", error.message, true);
+  } finally {
+    $("skinSpeak").disabled = false;
+  }
+});
+
+loadSkins();
+
 fetch("/api/health").then((response) => response.json()).then((data) => {
   if (data.neural) {
     $("neuralHint").textContent = `Checkpoint ${data.checkpoint} is loaded. Neural resynth is available.`;

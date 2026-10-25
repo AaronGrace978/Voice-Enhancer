@@ -10,3 +10,5 @@ dist/
 build/
 *.spec
 release-notes.md
+voices/
+.cache/

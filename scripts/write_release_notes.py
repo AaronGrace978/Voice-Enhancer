@@ -20,7 +20,9 @@ Unzip the archive and keep the folder together.
 
 The booth opens at http://127.0.0.1:8000. These builds are unsigned, so Windows SmartScreen and macOS Gatekeeper ask you to confirm the first launch.
 
-The download is the booth and the signal engine. Train the resynthesizer in the [Colab notebook](https://colab.research.google.com/github/AaronGrace978/Voice-Enhancer/blob/{ref}/notebooks/VocalLift_Colab.ipynb), then put `checkpoints/vocallift.pt` next to the program.
+The download is the booth and the signal engine, including voice skins: record a few minutes of a voice, then speak through it. The neural voice-skin engine (kNN-VC) needs PyTorch, so run that from source.
+
+Train the resynthesizer in the [Colab notebook](https://colab.research.google.com/github/AaronGrace978/Voice-Enhancer/blob/{ref}/notebooks/VocalLift_Colab.ipynb), then put `checkpoints/vocallift.pt` next to the program.
 """
     Path("release-notes.md").write_text(text, encoding="utf-8")
 

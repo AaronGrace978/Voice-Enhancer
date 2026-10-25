@@ -158,12 +158,15 @@ def _read(upload: UploadFile | None) -> np.ndarray | None:
 
 @app.get("/api/health")
 def health() -> dict:
+    from vocallift.skin_neural import available
+
     checkpoint = default_checkpoint()
     return {
         "ok": True,
         "version": __version__,
         "neural": bool(checkpoint),
         "checkpoint": Path(checkpoint).name if checkpoint else None,
+        "skin_neural": available()[0],
     }
 
 
@@ -210,6 +213,89 @@ def demo(mode: str = Form("offkey"), backing: str = Form("true")) -> dict:
     if _flag(backing, True):
         _DEMO_CACHE[mode] = payload
     return payload
+
+
+def _skin_card(item) -> dict:
+    return {
+        "name": item.name,
+        "owner": item.meta.owner,
+        "seconds": round(item.meta.seconds, 1),
+        "hz": round(item.meta.median_hz),
+        "terms": item.meta.terms,
+        "consent": item.meta.consent,
+    }
+
+
+@app.get("/api/skins")
+def skins() -> dict:
+    from vocallift.skin import list_skins
+
+    return {"skins": [_skin_card(item) for item in list_skins()]}
+
+
+@app.post("/api/skins")
+def build_voice_skin(
+    recordings: list[UploadFile] = File(...),
+    owner: str = Form(""),
+    consent: str = Form("false"),
+    terms: str = Form(""),
+    fast: str = Form("false"),
+) -> dict:
+    from vocallift.skin import build_skin, save_skin, slug, voices_dir
+
+    audio = [y for y in (_read(item) for item in recordings) if y is not None]
+    started = time.perf_counter()
+    try:
+        built = build_skin(audio, owner=owner, consent=_flag(consent), terms=terms, fast=_flag(fast))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    save_skin(built, voices_dir() / slug(owner), audio)
+    card = _skin_card(built)
+    card["elapsed_ms"] = round((time.perf_counter() - started) * 1000)
+    return card
+
+
+@app.post("/api/skins/speak")
+def speak_in_skin(
+    file: UploadFile = File(...),
+    voice: str = Form(...),
+    engine: str = Form("signal"),
+    amount: str = Form("1"),
+    pitch: str = Form("match"),
+    shift: str = Form("0"),
+    fast: str = Form("false"),
+) -> dict:
+    from vocallift.skin import SkinSettings, find_skin, provenance, speak_as, tagged_wav_bytes
+
+    audio = _read(file)
+    if audio is None:
+        raise HTTPException(400, "Choose a recording to speak through the skin.")
+    try:
+        skin = find_skin(voice)
+    except FileNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+    def num(value: str, fallback: float) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return fallback
+
+    settings = SkinSettings(amount=num(amount, 1.0), pitch=pitch, shift=num(shift, 0.0), fast=_flag(fast))
+    started = time.perf_counter()
+    try:
+        result = speak_as(audio, skin, SAMPLE_RATE, settings, engine=engine)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    body = result.summary()
+    body.update(
+        audio_base64=base64.b64encode(tagged_wav_bytes(result.audio, result.sr, result.owner)).decode("ascii"),
+        sample_rate=result.sr,
+        provenance=provenance(result.owner),
+        terms=skin.meta.terms,
+        elapsed_ms=round((time.perf_counter() - started) * 1000),
+    )
+    return body
 
 
 @app.get("/")

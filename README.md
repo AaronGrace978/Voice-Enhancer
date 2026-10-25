@@ -8,16 +8,18 @@ It is not a text-to-song generator. A model like Suno writes a performance that 
 
 On the included synthesized phrase, sour by about **37 cents** with one octave crack and one dropout, the engine finishes **4 cents** off the notes it was reaching for. A take sung a minor third flat, which snap-to-scale would drag onto the wrong degrees, follows a guide melody from **132 cents** off to **7**.
 
+It also has **voice skins**, the idea behind Holly Herndon's [Holly+](https://holly.plus): a voice owner shares their voice, and anyone can speak (or sing) into it and come out sounding like them. No singing is needed to make one or to use one. See [Voice skins](#voice-skins).
+
 ## Download
 
-[v0.1.1](https://github.com/AaronGrace978/Voice-Enhancer/releases/tag/v0.1.1) is built for Windows, macOS, and Linux. Unzip the archive and keep the folder together. Nothing else to install.
+[v0.2.0](https://github.com/AaronGrace978/Voice-Enhancer/releases/tag/v0.2.0) is built for Windows, macOS, and Linux. Unzip the archive and keep the folder together. Nothing else to install. This release adds voice skins.
 
 | Platform | File |
 | --- | --- |
-| Windows | `VocalLift-0.1.1-windows-x64.zip` |
-| macOS Apple Silicon | `VocalLift-0.1.1-macos-arm64.tar.gz` |
-| macOS Intel | `VocalLift-0.1.1-macos-x64.tar.gz` |
-| Linux | `VocalLift-0.1.1-linux-x64.tar.gz` |
+| Windows | `VocalLift-0.2.0-windows-x64.zip` |
+| macOS Apple Silicon | `VocalLift-0.2.0-macos-arm64.tar.gz` |
+| macOS Intel | `VocalLift-0.2.0-macos-x64.tar.gz` |
+| Linux | `VocalLift-0.2.0-linux-x64.tar.gz` |
 
 On Windows, double-click `VocalLift.exe`. On macOS or Linux, open a terminal in that folder and run `./VocalLift`. The booth opens at [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
@@ -45,6 +47,77 @@ python -m vocallift enhance take.wav out.wav --guide melody.wav --backing
 ```
 
 `--backing` also writes `out.mix.wav`, the vocal over a chord bed in the key it used.
+
+## Voice skins
+
+Holly+ works like this: Holly Herndon's voice was modeled, and anyone can send audio through it and hear it come back in her voice. The words, the timing, and the melody belong to whoever is performing. The timbre is hers. She made it, she set the terms, and she approves how it is used.
+
+A voice skin is that, for any voice whose owner agrees to share it:
+
+1. **Make a skin.** The owner reads anything aloud for two to five minutes. Several files are fine, and so is a phone recording in a quiet room.
+2. **Speak through it.** Anyone records themselves talking. The output says what they said, in the owner's voice.
+
+In the booth, scroll to **Voice skins** (or click the link at the top). From the command line:
+
+```bash
+# The owner: learn the voice. --consent is required.
+python -m vocallift skin build me-reading-1.wav me-reading-2.m4a --owner "Ada Lovelace" --consent --terms "credit me, non-commercial"
+
+# Anyone: say something in that voice.
+python -m vocallift skin speak my-line.wav as-ada.wav --voice "Ada Lovelace"
+python -m vocallift skin speak my-line.wav as-ada.wav --voice "Ada Lovelace" --engine neural
+
+python -m vocallift skin list
+```
+
+Skins live in `voices/<owner>/` (or wherever `VOCALLIFT_VOICES` points). Useful options for `speak`:
+
+| Option | What it does |
+| --- | --- |
+| `--engine signal` | The default. Instant, offline, no download. |
+| `--engine neural` | kNN-VC. Sounds most like the owner. Needs PyTorch and downloads about 1.3 GB of weights the first time. |
+| `--amount 0.7` | How far to go toward the owner. 0 leaves the speaker, 1 is all owner. |
+| `--pitch keep` | Leave the melody alone, for singing through a skin. The default, `match`, moves the speaker's pitch into the owner's range. |
+| `--shift -12` | Extra semitones on top of the pitch mode. |
+
+### How it works
+
+There are two engines. Neither one needs training on the owner, only their recordings.
+
+**Signal engine.** It splits both voices with the WORLD vocoder (pitch, spectral envelope, breathiness), and then three things happen:
+
+- **The words.** Every 5 ms frame of the speaker is matched to the owner frames that make the same sound. Matching uses the coarse shape of the envelope, normalized per voice, with a little context on each side. The owner's real envelopes and breathiness for that sound are averaged in.
+- **The vocal tract.** The speaker's whole envelope is stretched along the frequency axis until it lines up with the owner's average, and the owner's long-term tone color is applied on top. This keeps every consonant and vowel exactly as it was said. Half of each frame comes from this and half from the matched owner frames (`--detail` sets the split).
+- **The pitch.** It is moved from the speaker's range into the owner's, preserving the speaker's intonation: a rise is still a rise, it just starts from where the owner talks.
+
+**Neural engine.** This is [kNN-VC](https://github.com/bshall/knn-vc) (Baas, van Niekerk & Kamper, Interspeech 2023, MIT license). It does the same matching on WavLM speech features and turns them back into audio with a HiFi-GAN vocoder trained for exactly that. It sounds the most like the owner, and it gets better with more audio, up to about five minutes.
+
+### How well it works
+
+[`scripts/eval_skin.py`](scripts/eval_skin.py) downloads two CMU ARCTIC speakers. It builds a skin from 100 sentences by *slt* (a woman), then converts 15 *other* sentences read by *bdl* (a man). Each output is scored against slt reading the same sentence. Mel-cepstral distortion (MCD, after time alignment) measures how far the voice is from slt's. Word error rate, from a wav2vec 2.0 recognizer, measures whether the words survived.
+
+| | MCD to slt (lower is closer) | Word error rate |
+| --- | --- | --- |
+| bdl, unconverted | 13.32 dB | 4.3% |
+| Signal engine | 10.59 dB | 6.7% |
+| Neural engine | **9.31 dB** | **3.5%** |
+| slt herself, through the signal pipeline | 7.13 dB | — |
+
+The last row is the floor: what resynthesis costs even with nothing to convert. Both engines also land the pitch. bdl talks around 122 Hz and slt around 185 Hz, and the converted sentences come out at 186 Hz.
+
+```bash
+python scripts/eval_skin.py --asr                 # signal engine
+python scripts/eval_skin.py --asr --engine neural
+```
+
+### Consent and provenance
+
+Holly+ works because Holly Herndon said yes. Skins are built the same way:
+
+- A skin will not build without an owner's name and `--consent` (the booth has a checkbox). That is the person confirming the recordings are their own voice, or that the speaker agreed to share it. The statement and date are stored in `skin.json`, along with any terms the owner set. The booth shows those terms next to the voice.
+- Every file a skin produces carries a WAV comment: *"Synthetic voice: <owner> voice skin, made with VocalLift. Not a recording of <owner>."*
+
+Do not build a skin from someone else's recordings without their permission, and do not use one to pass off words as something a person really said.
 
 ## What it actually does
 
@@ -103,8 +176,10 @@ Put the file at `checkpoints/vocallift.pt` (or point `VOCALLIFT_CHECKPOINT` at i
 pytest
 ```
 
-The suite checks crack repair against a real melodic leap, vibrato surviving a full-strength retune, a guide pulling a flat phrase onto the melody, the booth's demo endpoint, and that a few training steps lower the resynthesis loss.
+The suite checks crack repair against a real melodic leap, vibrato surviving a full-strength retune, a guide pulling a flat phrase onto the melody, the booth's demo endpoint, and that a few training steps lower the resynthesis loss. For voice skins it checks that a skin refuses to build without consent, that a synthetic low voice comes out in a higher owner's range and tone color with every vowel still the vowel that was said, that the booth can build a skin and speak through it, and that the output is tagged.
 
 ## Limits
 
 Takes are capped at 45 seconds. Pitch tracking is Harvest by default; the faster DIO option will slip an octave more often. The neural model starts from synthetic vowels, so it will not sound like a particular person until it is fine-tuned on them, and even then it is a 16 kHz voice. There is no accompaniment generator beyond the preview chord bed, and no lyric or melody transcription.
+
+Voice skins convert up to five minutes at a time. The signal engine works at 24 kHz, and the neural engine at 16 kHz. Both work best on clean, dry speech from one person; background music or a second voice in the owner's recordings will leak into the skin. The neural engine is not in the downloadable builds yet, because it needs PyTorch. Run it from source with `pip install -r requirements.txt`. Neither engine copies an accent or speaking style; it copies the sound of the voice. For a closer match on singing, fine-tune the resynthesizer on the owner's takes as described above.
