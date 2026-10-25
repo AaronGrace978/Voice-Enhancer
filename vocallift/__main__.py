@@ -1,4 +1,4 @@
-"""Command line: enhance a file, train the resynthesizer, or open the booth."""
+"""Command line: enhance a file, wear a voice skin, train the resynthesizer, or open the booth."""
 
 from __future__ import annotations
 
@@ -44,7 +44,68 @@ def _build() -> argparse.ArgumentParser:
     train.add_argument("--out", default="checkpoints/vocallift.pt")
     train.add_argument("--finetune", nargs="*", default=[], help="Recordings of the voice to adapt to")
     train.add_argument("--init", default="", help="Checkpoint to keep training")
+
+    skin = sub.add_parser("skin", help="Voice skins: let other people speak in a voice its owner shared")
+    skin_sub = skin.add_subparsers(dest="skin_cmd", required=True)
+    build = skin_sub.add_parser("build", help="Learn a voice from its owner's recordings")
+    build.add_argument("recordings", nargs="+", help="Recordings of the owner speaking (a few minutes in total)")
+    build.add_argument("--owner", required=True, help="Whose voice this is")
+    build.add_argument("--consent", action="store_true", help="Confirm this is your voice, or its owner agreed to share it")
+    build.add_argument("--terms", default="", help="The owner's terms for using the voice, stored with the skin")
+    build.add_argument("--out", default="", help="Skin folder (default: voices/<owner>)")
+    build.add_argument("--fast", action="store_true")
+    speak = skin_sub.add_parser("speak", help="Say what a recording says, in a skin's voice")
+    speak.add_argument("input")
+    speak.add_argument("output")
+    speak.add_argument("--voice", required=True, help="Skin name or folder")
+    speak.add_argument("--engine", default="signal", choices=["signal", "neural"])
+    speak.add_argument("--amount", type=float, default=1.0, help="0 keeps the speaker, 1 is all owner")
+    speak.add_argument("--pitch", default="match", choices=["match", "keep"], help="keep leaves a sung melody alone")
+    speak.add_argument("--shift", type=float, default=0.0, help="Extra semitones")
+    speak.add_argument("--detail", type=float, default=0.5, help="Signal engine: owner frames vs. warped speaker")
+    speak.add_argument("--fast", action="store_true")
+    skin_sub.add_parser("list", help="Show the skins in voices/")
     return parser
+
+
+def _skin(args) -> None:
+    from vocallift.skin import (
+        SkinSettings,
+        build_skin,
+        find_skin,
+        list_skins,
+        load_recordings,
+        save_skin,
+        save_tagged,
+        slug,
+        speak_as,
+        voices_dir,
+    )
+
+    if args.skin_cmd == "list":
+        skins = list_skins()
+        if not skins:
+            print(f"No skins in {voices_dir()} yet.")
+        for item in skins:
+            print(f"{item.name}: {item.meta.owner}, {item.meta.seconds:.0f}s of audio, around {item.meta.median_hz:.0f} Hz")
+        return
+    if args.skin_cmd == "build":
+        recordings = load_recordings(args.recordings)
+        try:
+            built = build_skin(recordings, owner=args.owner, consent=args.consent, terms=args.terms, fast=args.fast)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+        path = save_skin(built, args.out or voices_dir() / slug(args.owner), recordings)
+        print(f"saved {path}  {built.meta.seconds:.0f}s of {built.meta.owner}, around {built.meta.median_hz:.0f} Hz")
+        return
+    try:
+        voice = find_skin(args.voice)
+        settings = SkinSettings(amount=args.amount, pitch=args.pitch, shift=args.shift, detail=args.detail, fast=args.fast)
+        result = speak_as(load_audio(args.input), voice, settings=settings, engine=args.engine)
+    except (ValueError, FileNotFoundError) as exc:
+        raise SystemExit(str(exc)) from exc
+    save_tagged(args.output, result.audio, result.sr, result.owner)
+    print(result.summary())
 
 
 def _open_booth(url: str, host: str) -> None:
@@ -81,6 +142,9 @@ def main(argv: list[str] | None = None) -> None:
         print(f"VocalLift booth at {url}")
         _open_booth(url, args.host)
         uvicorn.run(app, host=args.host, port=args.port)
+        return
+    if args.cmd == "skin":
+        _skin(args)
         return
     if args.cmd == "train":
         try:

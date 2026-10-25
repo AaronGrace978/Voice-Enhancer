@@ -27,6 +27,8 @@ The booth opens at http://127.0.0.1:8000
 
 Command line, from this folder:
   VocalLift enhance take.wav out.wav --key C --scale major
+  VocalLift skin build reading.wav --owner "Your Name" --consent
+  VocalLift skin speak line.wav out.wav --voice "Your Name"
 
 This build is the booth and the signal engine. Training stays in the Colab
 notebook. When you have a checkpoint, put it at checkpoints/vocallift.pt
@@ -80,6 +82,10 @@ def _freeze() -> Path:
         "fastapi",
         "--hidden-import",
         "multipart",
+        "--hidden-import",
+        "vocallift.skin",
+        "--hidden-import",
+        "vocallift.skin_neural",
         "--hidden-import",
         "pkg_resources",
         "--copy-metadata",
