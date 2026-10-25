@@ -292,6 +292,30 @@ td.on { color: var(--fixed); }
 
 .warning { color: var(--sung); }
 
+.skins { margin-top: 3.5rem; padding-top: 2rem; border-top: 1px solid var(--line); }
+.skins-head h2 {
+  margin: 0.3rem 0 0.7rem;
+  font-family: Fraunces, Palatino, "Iowan Old Style", serif;
+  font-weight: 560;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.skin-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.4rem; margin-top: 1.6rem; align-items: start; }
+.skin-record { align-items: center; margin-top: 0.7rem; }
+.skin-record .record { height: 64px; }
+.field { margin-top: 0.8rem; }
+.field em { font-style: normal; color: var(--muted); font-size: 0.82rem; }
+input[type="text"] {
+  background: #100e0c;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.55rem 0.6rem;
+  color: var(--text);
+  font: inherit;
+}
+.skin-players { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
 footer {
   max-width: 1120px;
   margin: 0 auto;
@@ -304,7 +328,7 @@ footer {
 footer p { margin: 0; }
 
 @media (max-width: 860px) {
-  .hero, .players { grid-template-columns: 1fr; }
+  .hero, .players, .skin-grid, .skin-players { grid-template-columns: 1fr; }
   .top, .top-links, footer { flex-direction: column; align-items: flex-start; }
   h1 { font-size: 3.2rem; }
 }

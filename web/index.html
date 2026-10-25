@@ -31,6 +31,7 @@
       <a class="colab" href="https://colab.research.google.com/github/AaronGrace978/Voice-Enhancer/blob/v0.1.1/notebooks/VocalLift_Colab.ipynb" target="_blank" rel="noopener">
         <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab" />
       </a>
+      <a class="text-link" href="#skins">Voice skins</a>
       <p>A singing engine you train yourself</p>
     </div>
   </header>
@@ -202,6 +203,112 @@
         </table>
       </div>
       <p class="warning" id="warning" hidden></p>
+    </section>
+
+    <section class="skins" id="skins" aria-label="Voice skins">
+      <header class="skins-head">
+        <p class="kicker">Voice skins</p>
+        <h2>Lend your voice. Speak in someone else's.</h2>
+        <p class="lede">
+          A voice skin is learned from a few minutes of its owner talking. Anyone can then speak into it and come out in that voice —
+          their words and timing, the owner's tone. No singing needed, and nothing leaves this machine.
+        </p>
+      </header>
+
+      <div class="skin-grid">
+        <section class="booth" aria-label="Make a voice skin">
+          <header class="booth-head">
+            <h2>1. Make a skin</h2>
+            <p>Two to five minutes of the owner reading aloud. Quiet room, one voice.</p>
+          </header>
+          <label class="drop" id="skinDrop">
+            <input id="skinFiles" type="file" multiple accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a,.webm" />
+            <strong id="skinFilesLabel">Drop recordings of the owner</strong>
+            <span>several files are fine</span>
+          </label>
+          <div class="sources skin-record">
+            <p class="hint">Or read anything aloud for a couple of minutes.</p>
+            <button type="button" class="record" id="skinRecord" aria-pressed="false">
+              <span class="dot"></span>
+              <span id="skinRecordLabel">Record</span>
+            </button>
+          </div>
+          <label class="field">Whose voice is this?
+            <input id="skinOwner" type="text" placeholder="Your name" autocomplete="name" />
+          </label>
+          <label class="field">Terms <em>optional</em>
+            <input id="skinTerms" type="text" placeholder="e.g. non-commercial, credit me" />
+          </label>
+          <div class="checks">
+            <label><input id="skinConsent" type="checkbox" /> This is my voice, or its owner agreed to share it</label>
+          </div>
+          <div class="actions">
+            <button type="button" class="go" id="skinBuild">Make skin</button>
+          </div>
+          <p class="status" id="skinBuildStatus" role="status"></p>
+        </section>
+
+        <section class="booth" aria-label="Speak through a voice skin">
+          <header class="booth-head">
+            <h2>2. Speak through it</h2>
+            <p>Say anything. It comes back in the skin's voice.</p>
+          </header>
+          <label>
+            Voice
+            <select id="skinVoice"><option value="">No skins yet</option></select>
+          </label>
+          <p class="hint" id="skinTermsHint"></p>
+          <div class="sources">
+            <label class="drop" id="speakDrop">
+              <input id="speakFile" type="file" accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a,.webm" />
+              <strong id="speakFileLabel">Drop what to say</strong>
+              <span>speech, or singing with "keep melody"</span>
+            </label>
+            <button type="button" class="record" id="speakRecord" aria-pressed="false">
+              <span class="dot"></span>
+              <span id="speakRecordLabel">Record</span>
+            </button>
+          </div>
+          <div class="row">
+            <label>
+              Engine
+              <select id="skinEngine">
+                <option value="signal">Signal — instant, offline</option>
+                <option value="neural">Neural — kNN-VC, most like them</option>
+              </select>
+            </label>
+            <label>
+              Pitch
+              <select id="skinPitch">
+                <option value="match">Move into their range</option>
+                <option value="keep">Keep melody (singing)</option>
+              </select>
+            </label>
+          </div>
+          <label class="slider"><span>Voice <output id="skinAmountOut">100%</output></span>
+            <input id="skinAmount" type="range" min="0" max="100" value="100" /></label>
+          <label class="slider"><span>Extra pitch <output id="skinShiftOut">0 st</output></span>
+            <input id="skinShift" type="range" min="-12" max="12" value="0" /></label>
+          <div class="actions">
+            <button type="button" class="go" id="skinSpeak">Speak as them</button>
+          </div>
+          <p class="status" id="skinSpeakStatus" role="status"></p>
+          <div class="players skin-players" id="skinOut" hidden>
+            <figure>
+              <figcaption>You</figcaption>
+              <audio id="skinBefore" controls></audio>
+            </figure>
+            <figure>
+              <figcaption id="skinAfterLabel">In their voice</figcaption>
+              <audio id="skinAfter" controls></audio>
+            </figure>
+          </div>
+          <div class="downloads" id="skinDownloads" hidden>
+            <a id="skinDownload" download="voice-skin.wav">Download</a>
+          </div>
+          <p class="hint" id="skinProvenance"></p>
+        </section>
+      </div>
     </section>
   </main>
 
