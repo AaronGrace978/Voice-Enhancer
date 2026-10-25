@@ -12,14 +12,14 @@ It also has **voice skins**, the idea behind Holly Herndon's [Holly+](https://ho
 
 ## Download
 
-[v0.1.1](https://github.com/AaronGrace978/Voice-Enhancer/releases/tag/v0.1.1) is built for Windows, macOS, and Linux. Unzip the archive and keep the folder together. Nothing else to install.
+[v0.2.0](https://github.com/AaronGrace978/Voice-Enhancer/releases/tag/v0.2.0) is built for Windows, macOS, and Linux. Unzip the archive and keep the folder together. Nothing else to install. This release adds voice skins.
 
 | Platform | File |
 | --- | --- |
-| Windows | `VocalLift-0.1.1-windows-x64.zip` |
-| macOS Apple Silicon | `VocalLift-0.1.1-macos-arm64.tar.gz` |
-| macOS Intel | `VocalLift-0.1.1-macos-x64.tar.gz` |
-| Linux | `VocalLift-0.1.1-linux-x64.tar.gz` |
+| Windows | `VocalLift-0.2.0-windows-x64.zip` |
+| macOS Apple Silicon | `VocalLift-0.2.0-macos-arm64.tar.gz` |
+| macOS Intel | `VocalLift-0.2.0-macos-x64.tar.gz` |
+| Linux | `VocalLift-0.2.0-linux-x64.tar.gz` |
 
 On Windows, double-click `VocalLift.exe`. On macOS or Linux, open a terminal in that folder and run `./VocalLift`. The booth opens at [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
