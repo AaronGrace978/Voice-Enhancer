@@ -486,11 +486,12 @@ $("skinSpeak").addEventListener("click", async () => {
   body.append("shift", $("skinShift").value);
   $("skinSpeak").disabled = true;
   skinStatus("skinSpeakStatus", $("skinEngine").value === "neural"
-    ? "Speaking through the neural engine… the first run downloads its weights."
+    ? "Speaking through the neural engine…"
     : "Speaking through the skin…");
   try {
     const response = await fetch("/api/skins/speak", { method: "POST", body });
     const data = await response.json();
+    if (response.status === 409) refreshNeural();
     if (!response.ok) throw new Error(errorText(data));
     $("skinOut").hidden = false;
     $("skinDownloads").hidden = false;
@@ -505,6 +506,48 @@ $("skinSpeak").addEventListener("click", async () => {
     skinStatus("skinSpeakStatus", error.message, true);
   } finally {
     $("skinSpeak").disabled = false;
+  }
+});
+
+let neuralPoll = null;
+
+function showNeural(status) {
+  const neural = $("skinEngine").value === "neural";
+  $("neuralSetup").hidden = !neural;
+  if (!neural || !status) return;
+  const gb = (bytes) => (bytes / 1e9).toFixed(2);
+  let text = "";
+  if (!status.torch) text = status.reason || "The neural engine is not available in this build.";
+  else if (status.ready) text = "Neural engine ready.";
+  else if (status.active) text = `Downloading the neural engine: ${gb(status.done)} of ${gb(status.total)} GB…`;
+  else if (status.error) text = `Download failed: ${status.error}`;
+  else text = "The neural engine needs a one-time 1.3 GB download.";
+  $("neuralSetupText").textContent = text;
+  $("neuralDownload").hidden = !status.torch || status.ready || status.active;
+  $("neuralProgress").hidden = !status.active;
+  $("neuralProgress").value = status.total ? Math.round(100 * status.done / status.total) : 0;
+  if (status.active && !neuralPoll) neuralPoll = setInterval(refreshNeural, 1000);
+  if (!status.active && neuralPoll) {
+    clearInterval(neuralPoll);
+    neuralPoll = null;
+  }
+}
+
+async function refreshNeural() {
+  try {
+    showNeural(await (await fetch("/api/skins/neural")).json());
+  } catch (error) {
+    showNeural(null);
+  }
+}
+
+$("skinEngine").addEventListener("change", refreshNeural);
+$("neuralDownload").addEventListener("click", async () => {
+  $("neuralDownload").disabled = true;
+  try {
+    showNeural(await (await fetch("/api/skins/neural/download", { method: "POST" })).json());
+  } finally {
+    $("neuralDownload").disabled = false;
   }
 });
 

@@ -315,6 +315,10 @@ input[type="text"] {
   font: inherit;
 }
 .skin-players { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.neural-setup { display: grid; gap: 0.5rem; margin-top: 0.8rem; }
+.neural-setup .hint { margin: 0; }
+.neural-setup button { justify-self: start; }
+progress { width: 100%; height: 6px; accent-color: var(--copper-deep); }
 
 footer {
   max-width: 1120px;
