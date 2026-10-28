@@ -12,20 +12,20 @@ It also has **voice skins**: record a few minutes of a voice, and anyone can spe
 
 ## Download
 
-[v0.2.0](https://github.com/AaronGrace978/Voice-Enhancer/releases/tag/v0.2.0) is built for Windows, macOS, and Linux. Unzip the archive and keep the folder together. Nothing else to install. This release adds voice skins.
+[v0.2.1](https://github.com/AaronGrace978/Voice-Enhancer/releases/tag/v0.2.1) is built for Windows, macOS, and Linux. Unzip the archive and keep the folder together. Nothing else to install. PyTorch is inside the app, so the neural voice-skin engine runs without a separate install. The first time you pick it, the booth downloads its weights (about 1.3 GB) and keeps them.
 
 | Platform | File |
 | --- | --- |
-| Windows | `VocalLift-0.2.0-windows-x64.zip` |
-| macOS Apple Silicon | `VocalLift-0.2.0-macos-arm64.tar.gz` |
-| macOS Intel | `VocalLift-0.2.0-macos-x64.tar.gz` |
-| Linux | `VocalLift-0.2.0-linux-x64.tar.gz` |
+| Windows | `VocalLift-0.2.1-windows-x64.zip` |
+| macOS Apple Silicon | `VocalLift-0.2.1-macos-arm64.tar.gz` |
+| macOS Intel | `VocalLift-0.2.1-macos-x64.tar.gz` |
+| Linux | `VocalLift-0.2.1-linux-x64.tar.gz` |
 
 On Windows, double-click `VocalLift.exe`. On macOS or Linux, open a terminal in that folder and run `./VocalLift`. The booth opens at [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
 These builds are unsigned. Windows SmartScreen and macOS Gatekeeper ask you to confirm the first launch. On a Mac, right-click `VocalLift` and choose Open.
 
-The download is the booth and the signal engine. Training the resynthesizer stays in the Colab notebook. Put a finished checkpoint next to the program at `checkpoints/vocallift.pt` and turn on Neural resynth.
+The download is the booth, the signal engine, and both voice-skin engines. Training the singing resynthesizer stays in the Colab notebook. Put a finished checkpoint next to the program at `checkpoints/vocallift.pt` and turn on Neural resynth.
 
 ## Run from source
 
@@ -73,7 +73,7 @@ Skins live in `voices/<owner>/` (or wherever `VOCALLIFT_VOICES` points). Useful 
 | Option | What it does |
 | --- | --- |
 | `--engine signal` | The default. Instant, offline, no download. |
-| `--engine neural` | kNN-VC. Sounds most like the owner. Needs PyTorch and downloads about 1.3 GB of weights the first time. |
+| `--engine neural` | kNN-VC. Sounds most like the owner. PyTorch ships with the app. The weights (about 1.3 GB) download once, or run `python -m vocallift skin neural-download`. |
 | `--amount 0.7` | How far to go toward the owner. 0 leaves the speaker, 1 is all owner. |
 | `--pitch keep` | Leave the melody alone, for singing through a skin. The default, `match`, moves the speaker's pitch into the owner's range. |
 | `--shift -12` | Extra semitones on top of the pitch mode. |
@@ -88,7 +88,7 @@ There are two engines. Neither one needs training on the owner, only their recor
 - **The vocal tract.** The speaker's whole envelope is stretched along the frequency axis until it lines up with the owner's average, and the owner's long-term tone color is applied on top. This keeps every consonant and vowel exactly as it was said. Half of each frame comes from this and half from the matched owner frames (`--detail` sets the split).
 - **The pitch.** It is moved from the speaker's range into the owner's, preserving the speaker's intonation: a rise is still a rise, it just starts from where the owner talks.
 
-**Neural engine.** This is [kNN-VC](https://github.com/bshall/knn-vc) (Baas, van Niekerk & Kamper, Interspeech 2023, MIT license). It does the same matching on WavLM speech features and turns them back into audio with a HiFi-GAN vocoder trained for exactly that. It sounds the most like the owner, and it gets better with more audio, up to about five minutes.
+**Neural engine.** This is [kNN-VC](https://github.com/bshall/knn-vc) (Baas, van Niekerk & Kamper, Interspeech 2023, MIT license). The encoder and vocoder code ship with VocalLift. It does the same matching on WavLM speech features and turns them back into audio with a HiFi-GAN vocoder trained for exactly that. It sounds the most like the owner, and it gets better with more audio, up to about five minutes. The first use downloads the weights, about 1.3 GB, into the torch hub cache (or wherever `VOCALLIFT_NEURAL_WEIGHTS` points). In the booth, choose Neural and press the download button. The progress bar stays on the page until it is ready.
 
 ### How well it works
 
@@ -180,4 +180,4 @@ The suite checks crack repair against a real melodic leap, vibrato surviving a f
 
 Takes are capped at 45 seconds. Pitch tracking is Harvest by default; the faster DIO option will slip an octave more often. The neural model starts from synthetic vowels, so it will not sound like a particular person until it is fine-tuned on them, and even then it is a 16 kHz voice. There is no accompaniment generator beyond the preview chord bed, and no lyric or melody transcription.
 
-Voice skins convert up to five minutes at a time. The signal engine works at 24 kHz, and the neural engine at 16 kHz. Both work best on clean, dry speech from one person; background music or a second voice in the owner's recordings will leak into the skin. The neural engine is not in the downloadable builds yet, because it needs PyTorch. Run it from source with `pip install -r requirements.txt`. Neither engine copies an accent or speaking style; it copies the sound of the voice. For a closer match on singing, fine-tune the resynthesizer on the owner's takes as described above.
+Voice skins convert up to five minutes at a time. The signal engine works at 24 kHz, and the neural engine at 16 kHz. Both work best on clean, dry speech from one person; background music or a second voice in the owner's recordings will leak into the skin. Neither engine copies an accent or speaking style; it copies the sound of the voice. For a closer match on singing, fine-tune the resynthesizer on the owner's takes as described above. The downloadable builds include PyTorch, so they are larger than 0.2.0. The neural weights are a separate one-time download, because bundling 1.3 GB into every platform archive would make the release several times bigger.

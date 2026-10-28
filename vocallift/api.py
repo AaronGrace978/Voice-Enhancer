@@ -255,6 +255,22 @@ def build_voice_skin(
     return card
 
 
+@app.get("/api/skins/neural")
+def neural_status() -> dict:
+    from vocallift.skin_neural import download_status
+
+    return download_status()
+
+
+@app.post("/api/skins/neural/download")
+def neural_download() -> dict:
+    from vocallift.skin_neural import available, download_status, start_download
+
+    if not available()[0]:
+        return download_status()
+    return start_download()
+
+
 @app.post("/api/skins/speak")
 def speak_in_skin(
     file: UploadFile = File(...),
@@ -280,6 +296,16 @@ def speak_in_skin(
             return float(value)
         except (TypeError, ValueError):
             return fallback
+
+    if engine == "neural":
+        from vocallift.skin_neural import available, start_download, weights_ready
+
+        if available()[0] and not weights_ready():
+            status = start_download()
+            if status["error"]:
+                raise HTTPException(503, f"The neural engine download failed ({status['error']}). Try again.")
+            percent = round(100 * status["done"] / status["total"])
+            raise HTTPException(409, f"Downloading the neural engine (1.3 GB, one time): {percent}%. Speak again when it finishes.")
 
     settings = SkinSettings(amount=num(amount, 1.0), pitch=pitch, shift=num(shift, 0.0), fast=_flag(fast))
     started = time.perf_counter()

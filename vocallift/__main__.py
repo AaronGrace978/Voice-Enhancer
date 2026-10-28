@@ -65,7 +65,27 @@ def _build() -> argparse.ArgumentParser:
     speak.add_argument("--detail", type=float, default=0.5, help="Signal engine: owner frames vs. warped speaker")
     speak.add_argument("--fast", action="store_true")
     skin_sub.add_parser("list", help="Show the skins in voices/")
+    skin_sub.add_parser("neural-download", help="Fetch the neural engine's weights (1.3 GB, one time)")
+    skin_sub.add_parser("neural-check", help="Check that PyTorch and the neural engine run, without downloading")
     return parser
+
+
+def _fetch_neural() -> None:
+    from vocallift.skin_neural import WEIGHTS, available, download_weights, weights_dir, weights_ready
+
+    ok, reason = available()
+    if not ok:
+        raise SystemExit(reason)
+    if weights_ready():
+        return
+    total = sum(WEIGHTS.values())
+    print(f"Downloading the neural engine (1.3 GB, one time) to {weights_dir()}")
+
+    def report(done: int) -> None:
+        print(f"\r  {100 * done / total:5.1f}%", end="", flush=True)
+
+    download_weights(report)
+    print("\n  done")
 
 
 def _skin(args) -> None:
@@ -98,6 +118,18 @@ def _skin(args) -> None:
         path = save_skin(built, args.out or voices_dir() / slug(args.owner), recordings)
         print(f"saved {path}  {built.meta.seconds:.0f}s of {built.meta.owner}, around {built.meta.median_hz:.0f} Hz")
         return
+    if args.skin_cmd == "neural-check":
+        from vocallift.skin_neural import available, selftest, weights_dir, weights_ready
+
+        ok, reason = available()
+        if not ok:
+            raise SystemExit(reason)
+        print({**selftest(), "weights_ready": weights_ready(), "weights": str(weights_dir())})
+        return
+    if args.skin_cmd == "neural-download" or args.engine == "neural":
+        _fetch_neural()
+        if args.skin_cmd == "neural-download":
+            return
     try:
         voice = find_skin(args.voice)
         settings = SkinSettings(amount=args.amount, pitch=args.pitch, shift=args.shift, detail=args.detail, fast=args.fast)

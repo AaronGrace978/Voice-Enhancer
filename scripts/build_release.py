@@ -30,9 +30,11 @@ Command line, from this folder:
   VocalLift skin build reading.wav --owner "Your Name" --consent
   VocalLift skin speak line.wav out.wav --voice "Your Name"
 
-This build is the booth and the signal engine, including voice skins.
-The neural voice-skin engine needs PyTorch, so it runs from source.
-Training stays in the Colab notebook. When you have a checkpoint, put it
+This build is the booth, the signal engine, and voice skins with both
+engines. PyTorch is included. The neural engine downloads its weights
+(1.3 GB) once, from the booth's download button or with
+  VocalLift skin neural-download
+Training the resynthesizer stays in the Colab notebook. When you have a checkpoint, put it
 at checkpoints/vocallift.pt next to the program and turn on Neural resynth.
 
 The download is unsigned. Windows SmartScreen and macOS Gatekeeper ask you
@@ -48,6 +50,11 @@ def _platform_tag() -> tuple[str, str]:
 
 
 def _freeze() -> Path:
+    try:
+        import torch
+    except ImportError as exc:
+        raise SystemExit("The release bundles the neural voice-skin engine. Install CPU PyTorch first (see the release workflow).") from exc
+    print(f"bundling torch {torch.__version__}")
     dist = ROOT / "dist"
     work = ROOT / "build"
     shutil.rmtree(dist, ignore_errors=True)
@@ -87,14 +94,18 @@ def _freeze() -> Path:
         "vocallift.skin",
         "--hidden-import",
         "vocallift.skin_neural",
+        "--collect-submodules",
+        "vocallift.vendor",
         "--hidden-import",
         "pkg_resources",
         "--copy-metadata",
         "pyworld",
         "--exclude-module",
-        "torch",
-        "--exclude-module",
         "torchaudio",
+        "--exclude-module",
+        "torchvision",
+        "--exclude-module",
+        "tensorboard",
         "--exclude-module",
         "librosa",
         "--exclude-module",

@@ -55,6 +55,12 @@ def main() -> None:
         print("cents", payload.get("before_cents"), payload.get("after_cents"))
         if not (payload["before_cents"] > payload["after_cents"]):
             raise SystemExit(f"demo did not improve the take: {payload.get('before_cents')} -> {payload.get('after_cents')}")
+        if not health.get("skin_neural"):
+            raise SystemExit("the booth says the neural voice-skin engine is not bundled")
+        check = subprocess.run([str(binary), "skin", "neural-check"], env=env, capture_output=True, text=True, timeout=600)
+        print(check.stdout.strip()[-400:])
+        if check.returncode != 0:
+            raise SystemExit(f"neural engine self-test failed\n{check.stdout}\n{check.stderr}")
     finally:
         proc.terminate()
         try:

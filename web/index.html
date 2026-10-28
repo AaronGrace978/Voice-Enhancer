@@ -28,7 +28,7 @@
       <span>VocalLift</span>
     </a>
     <div class="top-links">
-      <a class="colab" href="https://colab.research.google.com/github/AaronGrace978/Voice-Enhancer/blob/v0.2.0/notebooks/VocalLift_Colab.ipynb" target="_blank" rel="noopener">
+      <a class="colab" href="https://colab.research.google.com/github/AaronGrace978/Voice-Enhancer/blob/v0.2.1/notebooks/VocalLift_Colab.ipynb" target="_blank" rel="noopener">
         <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab" />
       </a>
       <a class="text-link" href="#skins">Voice skins</a>
@@ -285,6 +285,11 @@
               </select>
             </label>
           </div>
+          <div class="neural-setup" id="neuralSetup" hidden>
+            <p class="hint" id="neuralSetupText"></p>
+            <button type="button" class="ghost" id="neuralDownload" hidden>Download neural engine (1.3 GB)</button>
+            <progress id="neuralProgress" max="100" value="0" hidden></progress>
+          </div>
           <label class="slider"><span>Voice <output id="skinAmountOut">100%</output></span>
             <input id="skinAmount" type="range" min="0" max="100" value="100" /></label>
           <label class="slider"><span>Extra pitch <output id="skinShiftOut">0 st</output></span>
@@ -313,7 +318,7 @@
   </main>
 
   <footer>
-    <a class="colab" href="https://colab.research.google.com/github/AaronGrace978/Voice-Enhancer/blob/v0.2.0/notebooks/VocalLift_Colab.ipynb" target="_blank" rel="noopener">
+    <a class="colab" href="https://colab.research.google.com/github/AaronGrace978/Voice-Enhancer/blob/v0.2.1/notebooks/VocalLift_Colab.ipynb" target="_blank" rel="noopener">
       <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab" />
     </a>
     <p>The booth runs on this machine. That notebook opens in a Colab session and trains the resynthesizer — first on damaged synthetic singing, then on your own takes.</p>

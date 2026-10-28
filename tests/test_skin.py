@@ -136,6 +136,35 @@ def test_skin_roundtrip_and_tagged_output(owner_skin, tmp_path):
         assert handle.comment == provenance("Test Owner")
 
 
+def test_neural_engine_runs_without_weights_or_torchaudio():
+    pytest.importorskip("torch")
+    from vocallift.skin_neural import selftest
+
+    result = selftest()
+    assert result["frames"] > 40
+    assert result["samples"] > 15000
+
+
+def test_booth_asks_for_the_neural_download_instead_of_falling_back(tmp_path, monkeypatch):
+    pytest.importorskip("torch")
+    monkeypatch.setenv("VOCALLIFT_VOICES", str(tmp_path / "voices"))
+    monkeypatch.setenv("VOCALLIFT_NEURAL_WEIGHTS", str(tmp_path / "weights"))
+    from vocallift import skin_neural
+    from vocallift.api import app
+
+    started = []
+    monkeypatch.setattr(skin_neural, "start_download", lambda: started.append(1) or skin_neural.download_status())
+    owner = speaker(OWNER_TEXT, 1.18, 220, seed=1)
+    save_skin(build_skin([owner], sr=SKIN_RATE, owner="Ada", consent=True, fast=True), tmp_path / "voices" / "ada", [owner], SKIN_RATE)
+
+    buf = io.BytesIO()
+    sf.write(buf, speaker(SPOKEN, 1.0, 115), SKIN_RATE, format="WAV")
+    reply = TestClient(app).post("/api/skins/speak", files={"file": ("say.wav", buf.getvalue(), "audio/wav")}, data={"voice": "ada", "engine": "neural"})
+    assert reply.status_code == 409
+    assert "Downloading the neural engine" in reply.json()["detail"]
+    assert started
+
+
 def test_booth_builds_a_skin_and_speaks_through_it(tmp_path, monkeypatch):
     monkeypatch.setenv("VOCALLIFT_VOICES", str(tmp_path))
     from vocallift.api import app
@@ -175,6 +204,9 @@ def test_booth_builds_a_skin_and_speaks_through_it(tmp_path, monkeypatch):
 
     with sf.SoundFile(io.BytesIO(base64.b64decode(body["audio_base64"]))) as handle:
         assert "Synthetic voice: Ada" in handle.comment
+
+    neural = client.get("/api/skins/neural").json()
+    assert {"ready", "torch", "total"} <= set(neural)
 
     missing = client.post("/api/skins/speak", files={"file": ("say.wav", wav(speaker(SPOKEN, 1.0, 115)), "audio/wav")}, data={"voice": "nobody"})
     assert missing.status_code == 404
